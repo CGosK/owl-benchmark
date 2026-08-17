@@ -1,0 +1,20 @@
+# Model configuration. The primary model runs the whole pipeline.
+# Qwen3-8B: 36 layers, hidden 4096, bf16 weights ~16.4GB. NOT gated; no
+# trust_remote_code needed (transformers >= 4.51). Raw-text prompts only:
+# we never call apply_chat_template, so Qwen3 thinking mode is not triggered.
+primary:
+  id: "Qwen/Qwen3-8B"
+  dtype: "bfloat16"
+  trust_remote_code: false
+  batch_size_capture: 8        # set WOE_BATCH_CAPTURE=4 on a 16GB GPU
+  batch_size_behavior: 8       # set WOE_BATCH_BEHAVIOR=4 on a 16GB GPU
+  max_tokens: 220
+
+secondary:
+  # Replication model: run ONLY after the primary causal table is frozen.
+  id: "Qwen/Qwen2.5-7B-Instruct"
+  enabled: false
+
+smoke:
+  # End-to-end pipeline smoke test before the full run.
+  id: "Qwen/Qwen3-0.6B"

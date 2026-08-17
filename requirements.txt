@@ -1,0 +1,13 @@
+# OWL experiment suite — Python 3.10+.
+# Install on the GPU machine:
+#   pip install -r requirements.txt
+torch>=2.3
+transformers>=4.51.0
+accelerate>=0.30
+scikit-learn>=1.4
+scipy>=1.11
+numpy>=1.24
+pandas>=2.0
+pyyaml>=6.0
+tqdm>=4.66
+matplotlib>=3.7

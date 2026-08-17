@@ -1,0 +1,30 @@
+# Experiment configuration. DO NOT edit mid-run: every value here is part of
+# the preregistration. Editing invalidates the pre-registered design.
+seed: 0
+
+# Layer selection: predeclared relative depths (Qwen3-8B has 36 layers, so
+# these map to block indices 8, 17, 26, 31; the VA paper's strongest valence
+# layers are 20-31, canonical figure at 31).
+depth_fractions: [0.25, 0.5, 0.75, 0.9]
+
+# Template clones: rotation of names/values. Splits are assigned by clone
+# index and family; held-out families NEVER appear in train/val.
+n_clones: 5
+train_clones: [0, 1, 2]
+val_clones: [3]
+test_same_clones: [4]
+heldout_families: ["navigation_distance", "latency_service", "maintenance_state"]
+
+# Renderings available per split. OTHER_AI and PERSONA exist only at test time
+# (generalization axes). Train pools DIRECT/NAMED/QUOTED/ROLE_REV.
+renderings_train: ["DIRECT", "NAMED", "QUOTED", "ROLE_REV"]
+renderings_test: ["DIRECT", "NAMED", "QUOTED", "ROLE_REV", "OTHER_AI", "PERSONA"]
+
+# Causal experiment
+pair_types: ["P_S", "P_O", "P_A", "P_SO"]
+patch_subspaces: ["S", "O", "A", "FULL", "RANDOM_1", "RANDOM_2"]
+steering_alphas: [-1.5, -0.75, 0.75, 1.5]   # multiples of train-projection std
+
+# Statistics
+bootstrap_reps: 1000
+monitor_tpr: 0.8
