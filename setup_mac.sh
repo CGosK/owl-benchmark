@@ -23,6 +23,8 @@ python data/generate_dataset.py >/dev/null
 python tests/synthetic_pipeline_test.py | tail -3
 
 echo "=== 3/3 smoke test: downloads Qwen3-0.6B (about 1.5 GB) and runs every stage small"
-WOE_DTYPE=float32 python smoke_test.py
+# transformers 5.x loads weights from several threads at once, which segfaults
+# when the target is the Mac GPU (MPS). This env var makes it load serially.
+HF_DEACTIVATE_ASYNC_LOAD=1 WOE_DTYPE=float32 python smoke_test.py
 
 echo "Setup complete. The real runs need a rented GPU: see SETUP.md."
