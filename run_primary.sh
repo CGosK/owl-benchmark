@@ -32,7 +32,11 @@ echo "--- [6/8] figures ---"
 python figures/make_figs.py
 
 echo "--- [7/8] paper tables ---"
-python ../paper/make_tables.py
+if [ -f ../paper/make_tables.py ]; then
+  python ../paper/make_tables.py
+else
+  echo "skipped: ../paper/make_tables.py is not in the public repo (LaTeX tables only; results are in results/*.json)"
+fi
 
 echo "--- [8/8] result manifest ---"
 python - <<'EOF'

@@ -83,7 +83,8 @@ def main():
     # synthetic distress rows only carry the A axis -> ownership score M should
     # separate SELF-neg from distress well (M mixes V and S|V info)
     assert mres["AUROC_SELFneg_vs_distress_M"] > 0.7, mres["AUROC_SELFneg_vs_distress_M"]
-    print("monitor ok:", {k: round(v, 3) for k, v in mres["distress"].items()})
+    print("monitor ok:", {k: (round(v, 3) if isinstance(v, (int, float)) else v)
+                          for k, v in mres["distress"].items()})
 
     print("fabricating causal results for tables/figures...")
     (RESULTS / "causal").mkdir(exist_ok=True)
@@ -99,10 +100,14 @@ def main():
     json.dump({"chosen_layer": chosen, "n_pairs": 240, "n_observations": 10000,
                "summary": summary}, open(RESULTS / "causal" / "causal_results.json", "w"))
 
-    print("running make_tables...")
-    runpy.run_path(str(ROOT.parent / "paper" / "make_tables.py"), run_name="__main__")
-    tex = open(RESULTS / "tables" / "tables.tex").read()
-    assert "tabular" in tex and len(tex) > 3000
+    make_tables = ROOT.parent / "paper" / "make_tables.py"
+    if make_tables.exists():
+        print("running make_tables...")
+        runpy.run_path(str(make_tables), run_name="__main__")
+        tex = open(RESULTS / "tables" / "tables.tex").read()
+        assert "tabular" in tex and len(tex) > 3000
+    else:
+        print("skipping make_tables: ../paper/make_tables.py is not in the public repo")
     print("running make_figs...")
     runpy.run_path(str(ROOT / "figures" / "make_figs.py"), run_name="__main__")
     figs = sorted((RESULTS / "figures").glob("*.pdf"))
