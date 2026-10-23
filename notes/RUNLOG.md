@@ -212,3 +212,54 @@ just (lower bound 0.005), and at 90% depth the interval includes 0. At 25% depth
 to be too narrow, so treat borderline results (chosen-layer and 90%) as suggestive. The
 intervals cover which test templates were drawn, not probe-training noise or the layer
 choice (Mistral's validation saturates, so its chosen layer is arbitrary).
+
+## 2026-10-23: capture bug found, fixed, both models recaptured
+
+**Bug:** `src/capture.py` took `attention_mask.sum(dim=1) - 1` as the last-token index
+under left padding. That is only the last column for unpadded rows. Evidence from the saved
+Mistral embedding states: all 4,915 rows equal the embedding of the token the old index
+picks; only 1,879 equal the true final token ('.' for every prompt). With batch 8 the old
+index read the true final token for 31% (Qwen) / 38% (Mistral) of prompts, 1-4 tokens early
+(inside "End of status update.") for 68% / 60%, and the scenario text or padding for 1% / 2%.
+The offset alone predicts S and O (equally) at AUROC 0.58 / 0.68 on test_new. The paper's
+own embedding-layer scores (0.513 val, 0.466 test_new) match our run of the released code
+exactly, so its run had the bug; a correct read gives exactly 0.500.
+The causal step (`interchange.py`) builds patches from these captured states and adds them
+at the true final token, so the paper's causal numbers are affected too (not rerun).
+
+**Fix:** commit 7e7b1af, last 1 in each attention-mask row. Verified 4,915/4,915 prompts,
+both tokenizers, both padding sides.
+
+**Machine / cost:** M1 Max, $0. First attempt at 08:04 thrashed (only 11.8 GB free with
+apps open; 21 GB process) and was stopped after 60 min with nothing saved. Rerun at 11:24
+after quitting Chrome, Superhuman, Slack, Discord, with an automatic stop on sustained swap.
+
+**Command:** scratch driver running `src/capture.py` (stopped after hidden states save) and
+`eval/predictive.py` per model with `WOE_DEVICE_MAP=mps HF_DEACTIVATE_ASYNC_LOAD=1`; then
+`python eval/gap_bootstrap.py results/qwen3-8b-fixed results/mistral-7b-instruct-v0.3-fixed`.
+Capture: Qwen 28.7 min, Mistral 26.2 min. Embedding layer now 1 distinct state, AUROC 0.500.
+
+**Result, test_new (held-out families), fixed:**
+
+| Model, layer (depth) | S [95% CI] | O [95% CI] | S - O [95% CI] |
+|---|---|---|---|
+| Qwen 17 (50%, chosen) | 0.847 [0.726, 0.929] | 0.666 [0.548, 0.780] | 0.181 [0.124, 0.235] |
+| Qwen 26 (75%) | 0.874 [0.791, 0.941] | 0.698 [0.619, 0.795] | 0.176 [0.120, 0.219] |
+| Qwen 31 (90%) | 0.886 [0.801, 0.948] | 0.721 [0.635, 0.830] | 0.165 [0.089, 0.223] |
+| Mistral 15 (50%, chosen) | 0.856 [0.785, 0.911] | 0.802 [0.718, 0.874] | 0.054 [0.017, 0.095] |
+| Mistral 23 (75%) | 0.920 [0.860, 0.973] | 0.754 [0.670, 0.846] | 0.166 [0.121, 0.208] |
+| Mistral 28 (90%) | 0.911 [0.854, 0.968] | 0.692 [0.621, 0.767] | 0.220 [0.190, 0.247] |
+
+Qwen gap minus Mistral gap: 50% depth 0.127 [0.074, 0.176]; 75% 0.010 [-0.067, 0.079];
+90% -0.055 [-0.140, 0.014]. Validation S, fixed: Qwen 17 = 0.9996 vs 26 = 0.993 (clear
+pick, matches the paper's layer); Mistral 15/23/28 = 1.000 / 0.99995 / 0.9995 (saturated).
+A rises to 0.90-0.99 at deep layers. cos(vS, vO) fixed: Qwen 0.39-0.55, Mistral 0.21-0.53.
+
+**Reading:** the paper's S > O contrast survives the fix and a second family but is about
+two thirds of the reported size on Qwen (0.18 vs 0.26). At 75-90% depth the two families
+have the same gap; Mistral's is smaller only at 50% depth. Superseded: yesterday's
+"gap halves in Mistral", "S and O directions nearly parallel in Mistral" and the 0.001
+layer tie on Qwen were all artefacts of the bug.
+
+**Saved:** results/qwen3-8b-fixed/, results/mistral-7b-instruct-v0.3-fixed/ (gitignored),
+results/gap_bootstrap_fixed.json. Write-up republished as version 3.
