@@ -124,3 +124,52 @@ with a smaller batch (e.g. `WOE_BATCH_BEHAVIOR=2`) to cut its memory.
 probe and baseline JSON, logs.
 
 **Next:** goal 2, the same probe run on a non-Qwen model of similar size.
+
+## 2026-10-22: Mistral-7B-Instruct probe run on the Mac (goal 2)
+
+**Machine:** Apple M1 Max, 32 GB (MPS). **Model:** mistralai/Mistral-7B-Instruct-v0.3,
+bfloat16, batch 8. Ungated, different family and tokenizer from Qwen, same hidden size (4096).
+**Cost:** $0 (local). Download 14.5 GB (model shards only), 197 s.
+
+**Compatibility check:** `smoke_test.py` ignores `WOE_MODEL` (it overwrites it with the
+0.6B smoke model), so the check ran in the scratch pilot instead: ' A' and ' B' are single
+tokens (ids 1098, 1133); vocab 32,768; loads fully on MPS via `WOE_DEVICE_MAP=mps`.
+Pilot: 0.37 s/prompt capture, 0.39 s/question, memory flat at 14.6 GB.
+
+**Command:** `WOE_MODEL=mistralai/Mistral-7B-Instruct-v0.3 WOE_DEVICE_MAP=mps HF_DEACTIVATE_ASYNC_LOAD=1 caffeinate -i bash run_probe_only.sh`.
+Old results/capture moved to results/_stale_capture first.
+
+**Timeline:** start 21:21. Capture of layers [-1, 7, 15, 23, 28]: 26.3 min. Probes run by
+hand on the saved states at 21:49 (95 s). A/B choice step: 16 min, all 2,400 rows, memory
+steady at 18 GB with no swapping. The pipeline's own probe step then gave byte-identical
+results. Total 2,632 s.
+
+**Result (test_new, held-out families):**
+
+| Layer (depth) | S | O | S - O | S 95% CI | cos(vS, vO) | val S |
+|---|---|---|---|---|---|---|
+| -1 (embed) | 0.666 | 0.666 | 0.000 | 0.520-0.773 | 1.000 | 0.581 |
+| 7 (25%) | 0.541 | 0.654 | -0.113 | 0.437-0.642 | 0.999 | 0.913 |
+| **15 (50%, chosen)** | **0.790** | **0.696** | **0.094** | 0.727-0.851 | 0.934 | 1.000 |
+| 23 (75%) | 0.787 | 0.679 | 0.108 | 0.707-0.864 | 0.959 | 0.997 |
+| 28 (90%) | 0.824 | 0.681 | 0.143 | 0.759-0.892 | 0.960 | 0.990 |
+
+test_same at layer 15: S 0.917, O 0.844, A 0.999. Baselines identical to Qwen's for the
+text-only ones (TF-IDF S 0.566, pronoun 0.500); raw valence direction S 0.612.
+
+**Reading:** S > O holds on a second family but the gap is less than half of Qwen's
+(0.09 vs 0.22 at the chosen layers; 0.09-0.14 vs 0.22-0.26 across deep layers). Mistral's
+S and O directions are nearly parallel (cos 0.93-0.96 vs 0.74). The embedding-layer control
+reads S at 0.666, so part of Mistral's S signal is in the final token itself. Validation
+saturates (layer 15 val S 1.000), so layer choice is arbitrary; layer 28 is best on test_new.
+S intervals overlap between models; the pipeline gives no interval for O or the gap.
+
+**Paper check (from the report PDF, Table 2):** the paper's validation S was 0.991 at
+layer 17 vs 0.990 at 26, so it picked 17; ours was 0.9908 vs 0.9919, so we picked 26. At
+matched layers our Qwen numbers agree with the paper's: 40 of 45 cells within 0.01, all
+test_new S/O at layers 17-31 within 0.007 (layer 26: paper 0.848/0.637, ours 0.849/0.630).
+
+**Saved:** results/mistral-7b-instruct-v0.3/ (gitignored): hidden states, meta, directions,
+probe and baseline JSON, choice log-odds, logs.
+
+**Write-up:** "Whose Outcome, Which Model", published as an artifact and filed in Apart Prep.
