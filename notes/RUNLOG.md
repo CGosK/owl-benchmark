@@ -173,3 +173,42 @@ test_new S/O at layers 17-31 within 0.007 (layer 26: paper 0.848/0.637, ours 0.8
 probe and baseline JSON, choice log-odds, logs.
 
 **Write-up:** "Whose Outcome, Which Model", published as an artifact and filed in Apart Prep.
+
+## 2026-10-22: Error bars for O and the S - O gap (both models)
+
+**Machine:** Apple M1 Max (CPU only, no model loaded). **Cost:** $0. **Runtime:** 87 s.
+**Command:** `.venv/bin/python eval/gap_bootstrap.py` (new script; writes results/gap_bootstrap.json).
+
+**What it does:** reloads the saved hidden states for both runs, refits the S and O probes
+exactly as src/probes.py does, scores test_new, then redraws the 9 held-out templates with
+replacement 1,000 times (seed 0, same draws as src/bootstrap.py). Each draw is used for S and
+O and for both models, so gaps and the difference between models are paired.
+**Checks:** refit S/O AUROCs match probe_results.json to 3 decimals at all 10 model-layers;
+S intervals equal the pipeline's saved ones; 0 of 1,000 draws skipped.
+
+| test_new | Qwen3-8B layer 26 | Mistral-7B layer 15 |
+|---|---|---|
+| S | 0.849 [0.763, 0.925] | 0.790 [0.727, 0.851] |
+| O | 0.630 [0.566, 0.712] | 0.696 [0.593, 0.786] |
+| S - O | 0.219 [0.165, 0.283] | 0.094 [0.025, 0.186] |
+
+| Gap, Qwen minus Mistral | Layers | Diff [95% CI] |
+|---|---|---|
+| Chosen layers | 26 vs 15 | 0.124 [0.005, 0.231] |
+| 25% depth | 8 vs 7 | 0.123 [0.029, 0.211] |
+| 50% depth | 17 vs 15 | 0.168 [0.030, 0.275] |
+| 75% depth | 26 vs 23 | 0.111 [0.013, 0.201] |
+| 90% depth | 31 vs 28 | 0.108 [-0.032, 0.218] |
+
+Per-layer gaps [95% CI]: Qwen 8: 0.010 [-0.064, 0.086], 17: 0.262 [0.157, 0.330],
+31: 0.252 [0.181, 0.317]. Mistral 7: -0.113 [-0.204, -0.019], 23: 0.108 [0.070, 0.161],
+28: 0.144 [0.090, 0.223]. Embedding layer: S and O scores coincide, gap exactly 0 in both.
+
+**Reading:** S > O is not noise in either model: the gap's interval excludes 0 at every
+layer from 50% depth on. The gap really is smaller in Mistral at the chosen layers, but only
+just (lower bound 0.005), and at 90% depth the interval includes 0. At 25% depth the
+"difference" comes from Mistral reading O better than S, not from a Qwen gap.
+**Caveats:** only 9 template clusters, and percentile intervals from that few clusters tend
+to be too narrow, so treat borderline results (chosen-layer and 90%) as suggestive. The
+intervals cover which test templates were drawn, not probe-training noise or the layer
+choice (Mistral's validation saturates, so its chosen layer is arbitrary).
