@@ -53,7 +53,8 @@ cells[chosen_layer][test_same | test_new]. test_new = held-out scenario families
 - src/config.py, src/capture.py: opt-in WOE_DEVICE_MAP (unset = upstream behaviour).
 - src/capture.py: BUG FIX (Oct 23). Upstream took `attention_mask.sum() - 1` as the last
   token under LEFT padding, which only holds for unpadded rows: 62-69% of prompts were read
-  1-4 tokens early (inside "End of status update."), and the offset leaks the labels. Now
+  at the wrong token, almost all 1-4 tokens early (inside "End of status update."), and the
+  offset leaks the labels. Now
   reads the true last token. Results from the old index are in results/qwen3-8b and
   results/mistral-7b-instruct-v0.3 ("paper pipeline"); fixed ones in results/*-fixed.
 - eval/gap_bootstrap.py: paired cluster bootstrap for O and the S - O gap.
