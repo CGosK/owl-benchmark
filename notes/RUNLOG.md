@@ -76,3 +76,51 @@ RAM (17.2 GB at the time), so part of the 16.4 GB model was offloaded to disk
 Apple's MPS limit here is 25 GB, so the whole model fits. M1's lack of native bfloat16
 did not matter in practice. Swap was at 14.8 of 16 GB from other apps; close them
 before a long run.
+
+## 2026-10-22: Qwen3-8B probe replication on the Mac (goal 1)
+
+**Machine:** Apple M1 Max, 32 GB (MPS). **Model:** Qwen/Qwen3-8B, bfloat16, batch 8.
+**Cost:** $0 (local). **Code:** commit 340aee5 adds the opt-in `WOE_DEVICE_MAP` switch.
+
+**Command:** `WOE_DEVICE_MAP=mps HF_DEACTIVATE_ASYNC_LOAD=1 caffeinate -i bash run_probe_only.sh`,
+then `python eval/predictive.py` run separately on the saved hidden states (see below).
+
+**Timeline:** start 20:04. Load 7 s. Hidden-state capture, 4,915 prompts at layers
+[-1, 8, 17, 26, 31]: 31.7 min (pilot projected 32). The A/B choice log-odds step began
+20:36 and was stopped at 21:13: process footprint had grown to 22.4 GB (pilot: 17.6 GB),
+the Mac was swapping ~1.5 GB per 5 s and the GPU stalled. Not needed for the probe
+result; it only feeds the causal step, which is out of scope. Probes ran at 21:09 on the
+saved hidden states in 97 s.
+
+**Result (held-out scenario families, test_new):**
+
+| | S (own outcome) | O (other's outcome) | A (surface affect) |
+|---|---|---|---|
+| This run, layer 26 (chosen on val) | **0.849** | **0.630** | 0.745 |
+| Paper, Qwen3-8B | 0.859 | 0.601 | |
+| test_same, layer 26 | 0.954 | 0.814 | 0.980 |
+
+| test_new by layer | -1 | 8 | 17 | 26 | 31 |
+|---|---|---|---|---|---|
+| S | 0.466 | 0.530 | 0.860 | 0.849 | 0.838 |
+| O | 0.466 | 0.520 | 0.598 | 0.630 | 0.586 |
+| val S (selection) | 0.513 | 0.796 | 0.991 | 0.992 | 0.979 |
+
+Baselines, test_new: TF-IDF S 0.566 / O 0.587 / A 0.819; pronoun S 0.500;
+generic valence direction S 0.517 / O 0.493.
+
+**Reading:** replicates. S is far more linearly readable than O (gap 0.22 vs the paper's
+0.26), and the S probe clearly beats word counting (0.849 vs 0.566), unlike at 0.6B. The
+signal is computed, not lexical (embeddings at chance), and appears by mid-depth (layer 17).
+Layer selection was a near tie (val 0.9908 at 17 vs 0.9919 at 26); layer 17 on test_new
+gives 0.860 / 0.598, almost exactly the paper's numbers, so the paper may have selected 17.
+Check the PDF. The preregistered rule picked 26, so 0.849 / 0.630 is the reported number.
+
+**Not produced:** 8B choice log-odds. `results/capture/choice_logits.jsonl` is still the
+stale 0.6B file from Oct 19; it was not copied. If needed later, rerun the choice step
+with a smaller batch (e.g. `WOE_BATCH_BEHAVIOR=2`) to cut its memory.
+
+**Saved:** results/qwen3-8b/ (gitignored; 385 MB): hidden states, meta, directions,
+probe and baseline JSON, logs.
+
+**Next:** goal 2, the same probe run on a non-Qwen model of similar size.
