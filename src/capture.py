@@ -80,7 +80,10 @@ def capture_hidden(model, tok, prompts, batch_size: int, layers: list[int], max_
         enc = tok(batch, return_tensors="pt", padding=True, truncation=True,
                   max_length=max_tokens).to(model.device)
         out = model(**enc, output_hidden_states=True, use_cache=False)
-        last = enc["attention_mask"].sum(dim=1) - 1  # left padding -> last real token per row
+        # index of the last real token per row. With left padding it is the final
+        # column; attention_mask.sum() - 1 only equals that for unpadded rows.
+        am = enc["attention_mask"]
+        last = am.shape[1] - 1 - am.flip(dims=[1]).argmax(dim=1)
         for l in layers:
             idx = 0 if l == -1 else l + 1
             h = out.hidden_states[idx][torch.arange(len(batch), device=model.device), last]

@@ -29,9 +29,18 @@ Use your personal Claude account and GitHub identity here, not a client's.
 
 Done when: your fork is on GitHub with your changes, and the smoke test passed.
 
-## 4. The real run on a rented GPU
+## 4. The real run
 
-Rent one GPU with at least 24 GB of memory from any cloud GPU provider (the author timed
+**On the Mac (what was actually done, Oct 22-23).** A 32 GB Apple Silicon Mac runs the
+probe-only replication for a 7-8B model in about 35 minutes, at no cost:
+
+    WOE_DEVICE_MAP=mps HF_DEACTIVATE_ASYNC_LOAD=1 caffeinate -i bash run_probe_only.sh
+
+Qwen3-8B's A/B choice step (inside capture.py, after hidden states are saved) outgrows
+32 GB; stop it once the log says "saved hidden states" and run `python eval/predictive.py`.
+See notes/RUNLOG.md for the full record.
+
+**On a rented GPU** (needed for the causal step and the full pipeline). Rent one GPU with at least 24 GB of memory from any cloud GPU provider (the author timed
 an A100; an RTX 4090 works but is slower), using a PyTorch image. Then in Claude Code:
 
 > I've rented a GPU. The SSH command is: <paste it>. Help me run the probe-only
@@ -56,9 +65,12 @@ Shut the GPU down when you're finished; most providers bill until you do.
 ## 5. Change one variable
 
 > Pick an ungated, non-Qwen instruct model of about 7-8B that loads with transformers.
-> Run the smoke test with WOE_MODEL set to confirm 'A' and 'B' are single tokens, then
-> run run_probe_only.sh on the GPU with that model. Save results under
+> Confirm ' A' and ' B' are single tokens for its tokenizer and that it loads on the Mac
+> GPU (smoke_test.py can't do this: it overwrites WOE_MODEL with the 0.6B smoke model),
+> then run run_probe_only.sh with WOE_MODEL set. Save results under
 > results/<model-name>/ and log it in notes/RUNLOG.md.
+
+Done Oct 22 with mistralai/Mistral-7B-Instruct-v0.3.
 
 ## 6. Write it up
 
