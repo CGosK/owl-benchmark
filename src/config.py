@@ -2,7 +2,7 @@
 
 Loads code/configs/experiment.yaml and code/configs/model.yaml, merges them,
 and applies env-var overrides (WOE_MODEL, WOE_SECONDARY_MODEL, WOE_BATCH_CAPTURE,
-WOE_BATCH_BEHAVIOR, WOE_MAX_TOKENS). Every script in the repo imports this and
+WOE_BATCH_BEHAVIOR, WOE_MAX_TOKENS, WOE_DTYPE, WOE_DEVICE_MAP). Every script in the repo imports this and
 must NOT define its own parameters inline.
 """
 from __future__ import annotations
@@ -38,6 +38,9 @@ def load_config() -> dict:
         cfg["model"]["primary"]["max_tokens"] = int(os.environ["WOE_MAX_TOKENS"])
     if os.environ.get("WOE_DTYPE"):
         cfg["model"]["primary"]["dtype"] = os.environ["WOE_DTYPE"]
+    if os.environ.get("WOE_DEVICE_MAP"):
+        # e.g. "mps" on Apple Silicon: "auto" budgets by free RAM and can offload to disk
+        cfg["model"]["primary"]["device_map"] = os.environ["WOE_DEVICE_MAP"]
     return cfg
 
 

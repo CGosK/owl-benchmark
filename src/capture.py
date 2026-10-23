@@ -42,7 +42,7 @@ def load_model_and_tokenizer(cfg: dict):
     model = AutoModelForCausalLM.from_pretrained(
         m["id"],
         torch_dtype=torch.bfloat16 if m.get("dtype", "bfloat16") == "bfloat16" else torch.float32,
-        device_map="auto",
+        device_map=m.get("device_map", "auto"),
         trust_remote_code=m.get("trust_remote_code", True),
     )
     model.eval()
